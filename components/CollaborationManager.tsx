@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { Socket } from 'socket.io-client';
+import { useToast } from '@/hooks/use-toast';
 
 interface CollaborationManagerProps {
   socket: Socket;
