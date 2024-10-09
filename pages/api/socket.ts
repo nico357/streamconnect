@@ -1,19 +1,19 @@
 import { Server } from 'socket.io'
-import type { NextApiRequest } from 'next'
+import type { NextApiRequest, NextApiResponse } from 'next' // Import NextApiResponse
 import type { Socket as NetSocket } from 'net'
 import type { Server as HTTPServer } from 'http'
+
 
 interface SocketServer extends HTTPServer {
   io?: Server | undefined
 }
-
 interface SocketWithIO extends NetSocket {
   server: SocketServer
 }
-
-interface NextApiResponseWithSocket extends NextApiRequest {
+interface NextApiResponseWithSocket extends NextApiResponse { // Extend from NextApiResponse
   socket: SocketWithIO
 }
+
 
 const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
   if (res.socket.server.io) {

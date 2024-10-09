@@ -14,8 +14,12 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-const LiveChat: React.FC = () => {
-  const [socket, setSocket] = useState<any>(null);
+   interface LiveChatProps {
+       socket: any; // You might need to refine the type of 'socket' further
+       streamId: string;
+   }
+
+const LiveChat: React.FC<LiveChatProps> = ({ socket, streamId }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isModerator, setIsModerator] = useState(false); // En una aplicación real, esto vendría de la autenticación del usuario
@@ -46,10 +50,10 @@ const LiveChat: React.FC = () => {
         });
       });
 
-      setSocket(newSocket);
+      //setSocket(newSocket);
     };
 
-    socketInitializer();
+    //socketInitializer();
 
     return () => {
       if (socket) socket.disconnect();
