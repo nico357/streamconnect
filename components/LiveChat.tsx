@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from '@/hooks/use-toast';
-import io from 'socket.io-client';
+import { useSocket } from '@/hooks/useSocket';
 
 interface ChatMessage {
   id: string;
@@ -14,51 +14,46 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-   interface LiveChatProps {
-       socket: any; // You might need to refine the type of 'socket' further
-       streamId: string;
-   }
+interface LiveChatProps {
+  streamId: string;
+}
 
-const LiveChat: React.FC<LiveChatProps> = ({ socket, streamId }) => {
+const LiveChat: React.FC<LiveChatProps> = ({ streamId }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isModerator, setIsModerator] = useState(false); // En una aplicación real, esto vendría de la autenticación del usuario
+  const [isModerator, setIsModerator] = useState(false); // In a real app, this would come from user authentication
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { socket, sendMessage, deleteMessage, muteUser } = useSocket(streamId);
 
   useEffect(() => {
-    const socketInitializer = async () => {
-      await fetch('/api/socket');
-      const newSocket = io();
+    if (!socket) return;
 
-      newSocket.on('connect', () => {
-        console.log('Connected to socket');
-      });
-
-      newSocket.on('new-message', (msg: ChatMessage) => {
-        setMessages(prevMessages => [...prevMessages, msg]);
-      });
-
-      newSocket.on('message-deleted', (msgId: string) => {
-        setMessages(prevMessages => prevMessages.filter(msg => msg.id !== msgId));
-      });
-
-      newSocket.on('user-muted', (userId: string) => {
-        toast({
-          title: "Usuario silenciado",
-          description: `El usuario ${userId} ha sido silenciado.`,
-        });
-      });
-
-      //setSocket(newSocket);
+    const handleNewMessage = (msg: ChatMessage) => {
+      setMessages(prevMessages => [...prevMessages, msg]);
     };
 
-    //socketInitializer();
+    const handleMessageDeleted = (msgId: string) => {
+      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== msgId));
+    };
+
+    const handleUserMuted = (userId: string) => {
+      toast({
+        title: "Usuario silenciado",
+        description: `El usuario ${userId} ha sido silenciado.`,
+      });
+    };
+
+    socket.on('new-message', handleNewMessage);
+    socket.on('message-deleted', handleMessageDeleted);
+    socket.on('user-muted', handleUserMuted);
 
     return () => {
-      if (socket) socket.disconnect();
+      socket.off('new-message', handleNewMessage);
+      socket.off('message-deleted', handleMessageDeleted);
+      socket.off('user-muted', handleUserMuted);
     };
-  }, []);
+  }, [socket, toast]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -70,24 +65,24 @@ const LiveChat: React.FC<LiveChatProps> = ({ socket, streamId }) => {
     if (newMessage.trim() && socket) {
       const message: ChatMessage = {
         id: Date.now().toString(),
-        user: 'Usuario', // En una aplicación real, esto vendría del usuario autenticado
+        user: 'Usuario', // In a real app, this would come from the authenticated user
         message: newMessage.trim(),
         timestamp: new Date(),
       };
-      socket.emit('send-message', message);
+      sendMessage({ streamId, content: message.message, userId: message.user });
       setNewMessage('');
     }
   };
 
   const handleDeleteMessage = (msgId: string) => {
-    if (socket && isModerator) {
-      socket.emit('delete-message', msgId);
+    if (isModerator) {
+      deleteMessage({ streamId, msgId });
     }
   };
 
   const handleMuteUser = (userId: string) => {
-    if (socket && isModerator) {
-      socket.emit('mute-user', userId);
+    if (isModerator) {
+      muteUser({ streamId, userId });
     }
   };
 

@@ -1,51 +1,32 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Tv, Users, Settings, MessageSquare } from "lucide-react"
+import React, { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tv, Users, Settings, MessageSquare } from "lucide-react";
 import StreamSetup from '@/components/StreamSetup';
 import LiveStream from '@/components/LiveStream';
 import LiveChat from '@/components/LiveChat';
 import CollaborationManager from '@/components/CollaborationManager';
-import io from 'socket.io-client';
+import { useSocket } from '@/hooks/useSocket';
 
 export default function Home() {
   const [isStreaming, setIsStreaming] = useState(false);
-  const [socket, setSocket] = useState<any>(null);
   const [streamId, setStreamId] = useState<string>('');
-
-  useEffect(() => {
-    const socketInitializer = async () => {
-      await fetch('/api/socket');
-      const newSocket = io();
-      setSocket(newSocket);
-    };
-
-    socketInitializer();
-
-    return () => {
-      if (socket) socket.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (socket && streamId) {
-      socket.emit('join-stream', streamId);
-    }
-
-    return () => {
-      if (socket && streamId) {
-        socket.emit('leave-stream', streamId);
-      }
-    };
-  }, [socket, streamId]);
+  const { isConnected, joinStream, leaveStream } = useSocket(streamId);
 
   const startStream = () => {
     const newStreamId = `stream-${Date.now()}`;
     setStreamId(newStreamId);
+    joinStream(newStreamId);
     setIsStreaming(true);
+  };
+
+  const stopStream = () => {
+    leaveStream(streamId);
+    setStreamId('');
+    setIsStreaming(false);
   };
 
   return (
@@ -80,7 +61,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   {isStreaming ? (
-                    <LiveStream setIsStreaming={setIsStreaming} />
+                    <LiveStream setIsStreaming={stopStream} />
                   ) : (
                     <StreamSetup setIsStreaming={startStream} />
                   )}
@@ -94,9 +75,8 @@ export default function Home() {
                   <CardDescription>Gestiona la colaboración en tu transmisión</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {socket && streamId && (
+                  {isConnected && streamId && (
                     <CollaborationManager 
-                      socket={socket} 
                       streamId={streamId} 
                       isHost={true} 
                     />
@@ -126,8 +106,8 @@ export default function Home() {
                   <CardDescription>Interactúa con tu audiencia</CardDescription>
                 </CardHeader>
                 <CardContent className="h-[calc(100%-130px)]">
-                  {socket && streamId && (
-                    <LiveChat socket={socket} streamId={streamId} />
+                  {isConnected && streamId && (
+                    <LiveChat streamId={streamId} />
                   )}
                 </CardContent>
               </Card>
@@ -141,8 +121,8 @@ export default function Home() {
               <CardDescription>Interactúa con tu audiencia</CardDescription>
             </CardHeader>
             <CardContent className="h-[calc(100%-130px)]">
-              {socket && streamId && (
-                <LiveChat socket={socket} streamId={streamId} />
+              {isConnected && streamId && (
+                <LiveChat streamId={streamId} />
               )}
             </CardContent>
           </Card>

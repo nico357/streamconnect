@@ -2,24 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Socket } from 'socket.io-client';
+import { useSocket } from '@/hooks/useSocket';
 import { useToast } from '@/hooks/use-toast';
 
 interface CollaborationManagerProps {
-  socket: Socket;
   streamId: string;
   isHost: boolean;
 }
 
-const CollaborationManager: React.FC<CollaborationManagerProps> = ({ socket, streamId, isHost }) => {
+const CollaborationManager: React.FC<CollaborationManagerProps> = ({ streamId, isHost }) => {
   const [collaborators, setCollaborators] = useState<string[]>([]);
   const [collaborationRequests, setCollaborationRequests] = useState<string[]>([]);
   const { toast } = useToast();
+  const { socket, requestCollaboration, approveCollaboration, endCollaboration } = useSocket(streamId);
 
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('collaboration-requested', (userId: string) => {
+    const handleCollaborationRequested = (userId: string) => {
       if (isHost) {
         setCollaborationRequests(prev => [...prev, userId]);
         toast({
@@ -27,42 +27,46 @@ const CollaborationManager: React.FC<CollaborationManagerProps> = ({ socket, str
           description: `El usuario ${userId} quiere colaborar en el stream.`,
         });
       }
-    });
+    };
 
-    socket.on('collaboration-approved', (userId: string) => {
+    const handleCollaborationApproved = (userId: string) => {
       setCollaborators(prev => [...prev, userId]);
       toast({
         title: "Colaboración aprobada",
         description: `El usuario ${userId} ahora es un colaborador.`,
       });
-    });
+    };
 
-    socket.on('collaboration-ended', (userId: string) => {
+    const handleCollaborationEnded = (userId: string) => {
       setCollaborators(prev => prev.filter(id => id !== userId));
       toast({
         title: "Colaboración finalizada",
         description: `El usuario ${userId} ya no es un colaborador.`,
       });
-    });
+    };
+
+    socket.on('collaboration-requested', handleCollaborationRequested);
+    socket.on('collaboration-approved', handleCollaborationApproved);
+    socket.on('collaboration-ended', handleCollaborationEnded);
 
     return () => {
-      socket.off('collaboration-requested');
-      socket.off('collaboration-approved');
-      socket.off('collaboration-ended');
+      socket.off('collaboration-requested', handleCollaborationRequested);
+      socket.off('collaboration-approved', handleCollaborationApproved);
+      socket.off('collaboration-ended', handleCollaborationEnded);
     };
   }, [socket, isHost, toast]);
 
-  const requestCollaboration = () => {
-    socket.emit('request-collaboration', { streamId, userId: 'current-user-id' });
+  const handleRequestCollaboration = () => {
+    requestCollaboration({ streamId, userId: 'current-user-id' });
   };
 
-  const approveCollaboration = (userId: string) => {
-    socket.emit('approve-collaboration', { streamId, userId });
+  const handleApproveCollaboration = (userId: string) => {
+    approveCollaboration({ streamId, userId });
     setCollaborationRequests(prev => prev.filter(id => id !== userId));
   };
 
-  const endCollaboration = (userId: string) => {
-    socket.emit('end-collaboration', { streamId, userId });
+  const handleEndCollaboration = (userId: string) => {
+    endCollaboration({ streamId, userId });
   };
 
   return (
@@ -75,7 +79,7 @@ const CollaborationManager: React.FC<CollaborationManagerProps> = ({ socket, str
             {collaborationRequests.map(userId => (
               <div key={userId} className="flex items-center space-x-2 mt-2">
                 <span>{userId}</span>
-                <Button onClick={() => approveCollaboration(userId)}>Aprobar</Button>
+                <Button onClick={() => handleApproveCollaboration(userId)}>Aprobar</Button>
               </div>
             ))}
           </div>
@@ -84,13 +88,13 @@ const CollaborationManager: React.FC<CollaborationManagerProps> = ({ socket, str
             {collaborators.map(userId => (
               <div key={userId} className="flex items-center space-x-2 mt-2">
                 <span>{userId}</span>
-                <Button onClick={() => endCollaboration(userId)}>Finalizar colaboración</Button>
+                <Button onClick={() => handleEndCollaboration(userId)}>Finalizar colaboración</Button>
               </div>
             ))}
           </div>
         </>
       ) : (
-        <Button onClick={requestCollaboration}>Solicitar colaboración</Button>
+        <Button onClick={handleRequestCollaboration}>Solicitar colaboración</Button>
       )}
     </div>
   );
